@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Compose MCP Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .status {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .service {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+        }
+        .healthy { border-left: 4px solid #4CAF50; }
+        .unhealthy { border-left: 4px solid #f44336; }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐳 Docker Compose MCP Server Demo</h1>
+        <p>This is a simple multi-service application to demonstrate the Docker Compose MCP Server capabilities.</p>
+        
+        <h2>Service Status</h2>
+        <div class="status">
+            <div class="service healthy">
+                <h3>📱 Web Server</h3>
+                <p>Status: <span id="web-status">✅ Running</span></p>
+                <p>Port: 8080</p>
+            </div>
+            <div class="service healthy">
+                <h3>🚀 API Server</h3>
+                <p>Status: <span id="api-status">✅ Running</span></p>
+                <p>Port: 3000</p>
+            </div>
+            <div class="service healthy">
+                <h3>🗄️ Database</h3>
+                <p>Status: <span id="db-status">✅ Running</span></p>
+                <p>Port: 5432</p>
+            </div>
+            <div class="service healthy">
+                <h3>⚡ Cache</h3>
+                <p>Status: <span id="cache-status">✅ Running</span></p>
+                <p>Port: 6379</p>
+            </div>
+        </div>
+
+        <h2>Available Actions</h2>
+        <p>Use Claude with the Docker Compose MCP Server to interact with this application:</p>
+        
+        <div style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3>Try these commands with Claude:</h3>
+            <ul>
+                <li>"Show me the status of my Docker containers"</li>
+                <li>"Start all services in detached mode"</li>
+                <li>"Check the logs for the API service"</li>
+                <li>"Run a health check on all services"</li>
+                <li>"Execute a command in the database container"</li>
+                <li>"Run database migrations"</li>
+                <li>"Start watching for file changes"</li>
+                <li>"Get performance metrics for the MCP server"</li>
+            </ul>
+        </div>
+
+        <h2>Features Demonstrated</h2>
+        <ul>
+            <li>🔄 Multi-service orchestration</li>
+            <li>🏥 Health checks for all services</li>
+            <li>📊 Service dependencies (api → db, web → api)</li>
+            <li>💾 Persistent data volumes</li>
+            <li>🌐 Port mapping and networking</li>
+            <li>🔧 Environment variable configuration</li>
+        </ul>
+
+        <footer style="margin-top: 40px; text-align: center; opacity: 0.8;">
+            <p>Powered by Docker Compose MCP Server</p>
+            <p>90%+ context reduction while maintaining full operational visibility</p>
+        </footer>
+    </div>
+
+    <script>
+        // Simple status checking
+        async function checkServices() {
+            const services = ['api'];
+            for (const service of services) {
+                try {
+                    const response = await fetch(`http://localhost:3000/health`);
+                    document.getElementById(`${service}-status`).textContent = 
+                        response.ok ? '✅ Healthy' : '❌ Unhealthy';
+                } catch (e) {
+                    document.getElementById(`${service}-status`).textContent = '❌ Unavailable';
+                }
+            }
+        }
+        
+        // Check status every 30 seconds
+        setInterval(checkServices, 30000);
+        checkServices();
+    </script>
+</body>
+</html>
