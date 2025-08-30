@@ -2,32 +2,75 @@ package main
 
 import (
 	"context"
-	"log"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/jontolof/docker-compose-mcp/internal/compose"
+	"github.com/jontolof/docker-compose-mcp/internal/config"
+	"github.com/jontolof/docker-compose-mcp/internal/errors"
 	"github.com/jontolof/docker-compose-mcp/internal/filter"
+	"github.com/jontolof/docker-compose-mcp/internal/logging"
 	"github.com/jontolof/docker-compose-mcp/internal/mcp"
 	"github.com/jontolof/docker-compose-mcp/internal/session"
+	"github.com/jontolof/docker-compose-mcp/internal/shutdown"
 	"github.com/jontolof/docker-compose-mcp/internal/tools"
 )
 
 func main() {
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		logger := logging.NewLogger("main", logging.ErrorLevel, false)
+		logger.Errorf("Failed to load configuration: %v", err)
+		os.Exit(1)
+	}
+
+	// Initialize logging
+	logger := logging.NewLogger("main", cfg.LogLevel, cfg.LogFormat == "json")
+	if cfg.LogFile != "" {
+		fileLogger, err := logging.NewFileLogger("main", cfg.LogLevel, cfg.LogFormat == "json", cfg.LogFile)
+		if err != nil {
+			logger.Warnf("Failed to create file logger: %v", err)
+		} else {
+			logger = fileLogger
+		}
+	}
+
+	// Initialize error handler
+	errorHandler := errors.NewErrorHandler(errors.LogLevel(cfg.LogLevel))
+
+	// Initialize shutdown manager
+	shutdownMgr := shutdown.NewManager(cfg.ShutdownTimeout)
+	shutdownMgr.Listen()
+
+	logger.Infof("Starting Docker Compose MCP Server")
+	logger.Infof("Configuration loaded - Cache: %v, Metrics: %v, Parallel: %v", 
+		cfg.EnableCache, cfg.EnableMetrics, cfg.EnableParallel)
+
+	// Initialize components
 	server := mcp.NewServer()
 	composeClient := compose.NewClient(&compose.ClientOptions{
-		WorkDir:         ".",
-		EnableCache:     true,
-		EnableMetrics:   true,
-		EnableParallel:  true,
-		CacheSize:       100,
-		CacheMaxAge:     30 * time.Minute,
-		MaxWorkers:      4,
-		CommandTimeout:  5 * time.Minute,
+		WorkDir:         cfg.WorkDir,
+		EnableCache:     cfg.EnableCache,
+		EnableMetrics:   cfg.EnableMetrics,
+		EnableParallel:  cfg.EnableParallel,
+		CacheSize:       cfg.CacheSize,
+		CacheMaxAge:     cfg.CacheMaxAge,
+		MaxWorkers:      cfg.MaxWorkers,
+		CommandTimeout:  cfg.CommandTimeout,
 	})
 	outputFilter := filter.NewOutputFilter()
 	sessionManager := session.NewManager()
 	optimizationTool := tools.NewOptimizationTool(composeClient)
+
+	// Register cleanup handlers
+	shutdownMgr.RegisterSessionCleanup(sessionManager)
+	shutdownMgr.RegisterResource("compose_client", composeClient)
+	shutdownMgr.AddHandlerFunc("log_shutdown", func() error {
+		logger.Info("Shutting down Docker Compose MCP Server")
+		return nil
+	})
 
 	server.RegisterTool(mcp.Tool{
 		Name:        "compose_up",
@@ -345,9 +388,19 @@ func main() {
 		},
 	})
 
-	if err := server.Run(); err != nil {
-		log.Fatal(err)
-	}
+	// Run server with graceful shutdown
+	go func() {
+		if err := server.Run(); err != nil {
+			errorHandler.Handle(err)
+			shutdownMgr.Shutdown()
+		}
+	}()
+
+	logger.Info("Docker Compose MCP Server started successfully")
+	
+	// Wait for shutdown
+	<-shutdownMgr.Done()
+	logger.Info("Server shutdown complete")
 }
 
 func handleComposeCommand(client *compose.Client, filter *filter.OutputFilter, command string, params interface{}) (interface{}, error) {

@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "docker-compose-mcp": {
+      "command": "/path/to/docker-compose-mcp",
+      "args": [],
+      "env": {
+        "MCP_LOG_LEVEL": "info",
+        "MCP_LOG_FORMAT": "text",
+        "MCP_ENABLE_CACHE": "true",
+        "MCP_ENABLE_METRICS": "true",
+        "MCP_ENABLE_PARALLEL": "true",
+        "MCP_MAX_WORKERS": "4",
+        "MCP_COMMAND_TIMEOUT": "5m",
+        "MCP_SHUTDOWN_TIMEOUT": "30s"
+      }
+    }
+  }
+}

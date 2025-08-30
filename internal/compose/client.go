@@ -186,6 +186,12 @@ func (c *Client) Shutdown() {
 	}
 }
 
+// Close implements the Resource interface for graceful shutdown
+func (c *Client) Close() error {
+	c.Shutdown()
+	return nil
+}
+
 type ComposeError struct {
 	Message string
 	Output  string

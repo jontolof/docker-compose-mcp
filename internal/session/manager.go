@@ -83,3 +83,35 @@ func (m *Manager) ListSessions() []string {
 	}
 	return ids
 }
+
+// StopAllSessions stops all active sessions
+func (m *Manager) StopAllSessions() error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	var errors []error
+	for id := range m.sessions {
+		if err := m.stopSessionInternal(id); err != nil {
+			errors = append(errors, fmt.Errorf("failed to stop session %s: %w", id, err))
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to stop %d sessions: %v", len(errors), errors)
+	}
+	
+	return nil
+}
+
+// stopSessionInternal stops a session without acquiring locks (internal use)
+func (m *Manager) stopSessionInternal(id string) error {
+	session, exists := m.sessions[id]
+	if !exists {
+		return fmt.Errorf("session not found: %s", id)
+	}
+
+	session.Cancel()
+	close(session.Done)
+	delete(m.sessions, id)
+	return nil
+}
