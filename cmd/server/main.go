@@ -16,6 +16,7 @@ import (
 	"github.com/jontolof/docker-compose-mcp/internal/shutdown"
 	"github.com/jontolof/docker-compose-mcp/internal/tools"
 	"github.com/jontolof/docker-compose-mcp/internal/workspace"
+	"github.com/jontolof/docker-compose-mcp/internal/docker"
 )
 
 func main() {
@@ -69,6 +70,11 @@ func main() {
 	workspaceManager := workspace.NewManager(cfg.WorkDir)
 	workspaceTool := tools.NewWorkspaceTool(workspaceManager)
 	projectDiscoveryTool := tools.NewProjectDiscoveryTool(workspaceManager)
+	
+	// Initialize Docker host manager
+	dockerHostManager := docker.NewHostManager()
+	dockerHostTool := tools.NewDockerHostTool(dockerHostManager)
+	dockerContextTool := tools.NewDockerContextTool(dockerHostManager)
 
 	// Register cleanup handlers
 	shutdownMgr.RegisterSessionCleanup(sessionManager)
@@ -417,6 +423,33 @@ func main() {
 		},
 		Handler: func(params interface{}) (interface{}, error) {
 			return projectDiscoveryTool.Execute(context.Background(), params)
+		},
+	})
+
+	// Register Docker host management tools
+	server.RegisterTool(mcp.Tool{
+		Name:        "docker_host_manage",
+		Description: dockerHostTool.GetDescription(),
+		InputSchema: mcp.Schema{
+			Type:       "object",
+			Properties: convertSchemaProperties(dockerHostTool.GetSchema()["properties"].(map[string]interface{})),
+			Required:   []string{"action"},
+		},
+		Handler: func(params interface{}) (interface{}, error) {
+			return dockerHostTool.Execute(context.Background(), params)
+		},
+	})
+
+	server.RegisterTool(mcp.Tool{
+		Name:        "docker_context",
+		Description: dockerContextTool.GetDescription(),
+		InputSchema: mcp.Schema{
+			Type:       "object",
+			Properties: convertSchemaProperties(dockerContextTool.GetSchema()["properties"].(map[string]interface{})),
+			Required:   []string{"action"},
+		},
+		Handler: func(params interface{}) (interface{}, error) {
+			return dockerContextTool.Execute(context.Background(), params)
 		},
 	})
 
