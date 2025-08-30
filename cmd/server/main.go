@@ -10,13 +10,24 @@ import (
 	"github.com/jontolof/docker-compose-mcp/internal/filter"
 	"github.com/jontolof/docker-compose-mcp/internal/mcp"
 	"github.com/jontolof/docker-compose-mcp/internal/session"
+	"github.com/jontolof/docker-compose-mcp/internal/tools"
 )
 
 func main() {
 	server := mcp.NewServer()
-	composeClient := compose.NewClient()
+	composeClient := compose.NewClient(&compose.ClientOptions{
+		WorkDir:         ".",
+		EnableCache:     true,
+		EnableMetrics:   true,
+		EnableParallel:  true,
+		CacheSize:       100,
+		CacheMaxAge:     30 * time.Minute,
+		MaxWorkers:      4,
+		CommandTimeout:  5 * time.Minute,
+	})
 	outputFilter := filter.NewOutputFilter()
 	sessionManager := session.NewManager()
+	optimizationTool := tools.NewOptimizationTool(composeClient)
 
 	server.RegisterTool(mcp.Tool{
 		Name:        "compose_up",
@@ -317,6 +328,20 @@ func main() {
 		},
 		Handler: func(params interface{}) (interface{}, error) {
 			return handleDbBackupCommand(composeClient, outputFilter, params)
+		},
+	})
+
+	// Register optimization tool
+	server.RegisterTool(mcp.Tool{
+		Name:        "compose_optimization",
+		Description: optimizationTool.GetDescription(),
+		InputSchema: mcp.Schema{
+			Type:       "object",
+			Properties: convertSchemaProperties(optimizationTool.GetSchema()["properties"].(map[string]interface{})),
+			Required:   []string{"action"},
+		},
+		Handler: func(params interface{}) (interface{}, error) {
+			return optimizationTool.Execute(context.Background(), params)
 		},
 	})
 
@@ -798,4 +823,18 @@ func handleDbBackupCommand(client *compose.Client, filter *filter.OutputFilter, 
 
 	filtered := filter.Filter(output)
 	return action + " completed successfully: " + filtered, nil
+}
+
+func convertSchemaProperties(props map[string]interface{}) map[string]mcp.Schema {
+	result := make(map[string]mcp.Schema)
+	for key, value := range props {
+		if propMap, ok := value.(map[string]interface{}); ok {
+			schema := mcp.Schema{}
+			if propType, exists := propMap["type"].(string); exists {
+				schema.Type = propType
+			}
+			result[key] = schema
+		}
+	}
+	return result
 }

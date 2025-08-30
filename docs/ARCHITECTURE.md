@@ -11,13 +11,27 @@ The server implements the Model Context Protocol (MCP) to provide Docker Compose
 - Manages stdio transport with `bufio` and `encoding/json`
 
 ### 2. Docker Compose Layer (`internal/compose/`)
-- **Controller**: Handles MCP requests and orchestrates operations
-- **Service**: Business logic for filtering and processing Docker output
-- **Repository**: Executes Docker Compose commands via `os/exec`
-- **DTO**: Request/response models for structured communication
+- **Client**: Optimized Docker Compose command execution with caching and metrics
+- **Command Execution**: Executes Docker Compose commands via `os/exec`
+- **Output Processing**: Handles filtering integration and metrics collection
+- **Session Integration**: Manages long-running operations with session IDs
 
 ### 3. Filtering System (`internal/filter/`)
-- Intelligent output filtering to extract only essential information
+- **Intelligent Filtering**: Reduces output by 90%+ while preserving errors
+- **Framework-Specific**: Go, Jest, pytest, database migration parsing
+- **Pattern Matching**: Configurable regex patterns for different output types
+- **Fallback Safety**: Raw output preservation when filtering fails
+
+### 4. Optimization Features (Phase 5)
+- **Config Cache** (`internal/cache/`): Smart Docker Compose config caching with MD5 integrity
+- **Parallel Executor** (`internal/parallel/`): Worker pools for independent operations  
+- **Metrics System** (`internal/metrics/`): Real-time filtering performance tracking
+- **Tool Framework** (`internal/tools/`): Reusable MCP tool implementations
+
+### 5. Session Management (`internal/session/`)
+- **Long-Running Operations**: File watching, log following, monitoring
+- **Session Lifecycle**: Start, status check, stop operations with unique IDs
+- **Context Management**: Proper cleanup and resource management
 - Pattern-based filtering for test results, build output, and logs
 - Maintains 90%+ context reduction while preserving critical data
 
