@@ -227,3 +227,82 @@ func (f *OutputFilter) filterGenericTestOutput(lines []string) ([]string, []stri
 	
 	return filtered, summary
 }
+
+func (f *OutputFilter) FilterMigrationOutput(output string) string {
+	lines := strings.Split(output, "\n")
+	var filtered []string
+	
+	migrationPatterns := []string{
+		"(?i)migration.*success",
+		"(?i)migration.*complet",
+		"(?i)migration.*appli",
+		"(?i)migrat.*up",
+		"(?i)migrat.*down", 
+		"(?i)migrat.*drop",
+		"(?i)creat.*table",
+		"(?i)drop.*table",
+		"(?i)alter.*table",
+		"(?i)version.*\\d+",
+		"(?i)schema.*version",
+		"(?i)error",
+		"(?i)fail",
+		"(?i)warn",
+		"(?i)rollback",
+		"(?i)commit",
+	}
+	
+	skipPatterns := []string{
+		"(?i)^\\s*$",
+		"(?i)verbose",
+		"(?i)debug",
+		"(?i)connecting.*database",
+		"(?i)connection.*establish",
+	}
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		skip := false
+		for _, pattern := range skipPatterns {
+			if matched, _ := regexp.MatchString(pattern, line); matched {
+				skip = true
+				break
+			}
+		}
+		
+		if skip {
+			continue
+		}
+		
+		keep := false
+		for _, pattern := range migrationPatterns {
+			if matched, _ := regexp.MatchString(pattern, line); matched {
+				keep = true
+				break
+			}
+		}
+		
+		if keep || len(line) < 150 {
+			filtered = append(filtered, line)
+		}
+	}
+	
+	if len(filtered) == 0 && len(lines) > 0 {
+		return "Migration command completed"
+	}
+	
+	result := strings.Join(filtered, "\n")
+	if len(result) > 1000 {
+		lines := strings.Split(result, "\n")
+		if len(lines) > 10 {
+			truncated := append(lines[:5], "... (truncated) ...")
+			truncated = append(truncated, lines[len(lines)-5:]...)
+			result = strings.Join(truncated, "\n")
+		}
+	}
+	
+	return result
+}

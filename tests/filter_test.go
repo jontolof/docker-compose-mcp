@@ -58,3 +58,87 @@ Status: Downloaded newer image for postgres:13`,
 		})
 	}
 }
+
+func TestOutputFilter_FilterMigrationOutput(t *testing.T) {
+	f := filter.NewOutputFilter()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "keeps migration success messages",
+			input: `Connecting to database...
+Connection established
+Migration 001_create_users.up.sql applied successfully
+Migration 002_add_indexes.up.sql applied successfully
+Migration completed successfully
+Verbose debug info...`,
+			expected: `Migration 001_create_users.up.sql applied successfully
+Migration 002_add_indexes.up.sql applied successfully
+Migration completed successfully`,
+		},
+		{
+			name: "keeps migration errors",
+			input: `Connecting to database...
+Starting migration...
+Migration 001_create_users.up.sql applied successfully
+ERROR: Migration 002_bad_syntax.up.sql failed: syntax error
+Migration failed`,
+			expected: `Starting migration...
+Migration 001_create_users.up.sql applied successfully
+ERROR: Migration 002_bad_syntax.up.sql failed: syntax error
+Migration failed`,
+		},
+		{
+			name: "keeps database operations",
+			input: `Creating table users...
+Creating table posts...
+Adding foreign key constraints...
+Creating indexes...
+Migration completed`,
+			expected: `Creating table users...
+Creating table posts...
+Adding foreign key constraints...
+Creating indexes...
+Migration completed`,
+		},
+		{
+			name: "empty migration returns completion message",
+			input: "",
+			expected: "Migration command completed",
+		},
+		{
+			name: "keeps version information",
+			input: `Current schema version: 001
+Applying migration version 002
+Migration version 002 applied successfully
+Schema version updated to 002`,
+			expected: `Current schema version: 001
+Applying migration version 002
+Migration version 002 applied successfully
+Schema version updated to 002`,
+		},
+		{
+			name: "filters verbose connection info",
+			input: `Connecting to database postgresql://user@host:5432/db
+Connection established successfully
+Debug: Query execution time: 0.5ms
+Migration 001_users.up.sql applied successfully
+Debug: Another verbose message
+Migration completed`,
+			expected: `Migration 001_users.up.sql applied successfully
+Migration completed`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := f.FilterMigrationOutput(tt.input)
+			if result != tt.expected {
+				t.Errorf("FilterMigrationOutput() = %q, expected %q", result, tt.expected)
+			}
+		})
+	}
+}

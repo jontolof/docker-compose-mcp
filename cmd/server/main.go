@@ -230,6 +230,96 @@ func main() {
 		},
 	})
 
+	server.RegisterTool(mcp.Tool{
+		Name:        "compose_migrate",
+		Description: "Run database migrations in a service container",
+		InputSchema: mcp.Schema{
+			Type: "object",
+			Properties: map[string]mcp.Schema{
+				"service": {
+					Type: "string",
+				},
+				"migrate_command": {
+					Type: "string",
+				},
+				"direction": {
+					Type: "string",
+				},
+				"steps": {
+					Type: "string",
+				},
+				"target": {
+					Type: "string",
+				},
+			},
+			Required: []string{"service"},
+		},
+		Handler: func(params interface{}) (interface{}, error) {
+			return handleMigrateCommand(composeClient, outputFilter, params)
+		},
+	})
+
+	server.RegisterTool(mcp.Tool{
+		Name:        "compose_db_reset",
+		Description: "Reset database to clean state, optionally with seeds",
+		InputSchema: mcp.Schema{
+			Type: "object",
+			Properties: map[string]mcp.Schema{
+				"service": {
+					Type: "string",
+				},
+				"reset_command": {
+					Type: "string",
+				},
+				"seed_command": {
+					Type: "string",
+				},
+				"confirm": {
+					Type: "boolean",
+				},
+				"backup_first": {
+					Type: "boolean",
+				},
+			},
+			Required: []string{"service", "confirm"},
+		},
+		Handler: func(params interface{}) (interface{}, error) {
+			return handleDbResetCommand(composeClient, outputFilter, params)
+		},
+	})
+
+	server.RegisterTool(mcp.Tool{
+		Name:        "compose_db_backup",
+		Description: "Create, restore, or list database backups",
+		InputSchema: mcp.Schema{
+			Type: "object",
+			Properties: map[string]mcp.Schema{
+				"service": {
+					Type: "string",
+				},
+				"action": {
+					Type: "string",
+				},
+				"backup_name": {
+					Type: "string",
+				},
+				"backup_command": {
+					Type: "string",
+				},
+				"restore_command": {
+					Type: "string",
+				},
+				"list_command": {
+					Type: "string",
+				},
+			},
+			Required: []string{"service", "action"},
+		},
+		Handler: func(params interface{}) (interface{}, error) {
+			return handleDbBackupCommand(composeClient, outputFilter, params)
+		},
+	})
+
 	if err := server.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -508,4 +598,204 @@ func handleWatchStatus(sessionMgr *session.Manager, params interface{}) (interfa
 		"start_time": sess.StartTime.Format(time.RFC3339),
 		"output":     output,
 	}, nil
+}
+
+func handleMigrateCommand(client *compose.Client, filter *filter.OutputFilter, params interface{}) (interface{}, error) {
+	paramsMap, ok := params.(map[string]interface{})
+	if !ok {
+		return "Invalid parameters", nil
+	}
+
+	service, ok := paramsMap["service"].(string)
+	if !ok || service == "" {
+		return "Service name is required", nil
+	}
+
+	migrateCommand := "migrate up"
+	if cmd, ok := paramsMap["migrate_command"].(string); ok && cmd != "" {
+		migrateCommand = cmd
+	}
+
+	if direction, ok := paramsMap["direction"].(string); ok && direction != "" {
+		switch direction {
+		case "up", "down":
+			if strings.Contains(migrateCommand, "migrate") {
+				migrateCommand = strings.Replace(migrateCommand, "migrate", "migrate "+direction, 1)
+			} else {
+				migrateCommand = "migrate " + direction + " " + migrateCommand
+			}
+		}
+	}
+
+	if steps, ok := paramsMap["steps"].(string); ok && steps != "" {
+		migrateCommand += " " + steps
+	}
+
+	if target, ok := paramsMap["target"].(string); ok && target != "" {
+		migrateCommand += " " + target
+	}
+
+	args := []string{"exec", "-T", service}
+	args = append(args, strings.Split(migrateCommand, " ")...)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	output, err := client.Execute(ctx, args)
+	if err != nil {
+		if composeErr, ok := err.(*compose.ComposeError); ok {
+			filtered := filter.FilterMigrationOutput(composeErr.Output + "\n" + composeErr.Message)
+			return filtered, nil
+		}
+		return err.Error(), nil
+	}
+
+	filtered := filter.FilterMigrationOutput(output)
+	return filtered, nil
+}
+
+func handleDbResetCommand(client *compose.Client, filter *filter.OutputFilter, params interface{}) (interface{}, error) {
+	paramsMap, ok := params.(map[string]interface{})
+	if !ok {
+		return "Invalid parameters", nil
+	}
+
+	service, ok := paramsMap["service"].(string)
+	if !ok || service == "" {
+		return "Service name is required", nil
+	}
+
+	confirm, ok := paramsMap["confirm"].(bool)
+	if !ok || !confirm {
+		return "Database reset requires explicit confirmation. Set 'confirm' to true.", nil
+	}
+
+	var results []string
+
+	if backupFirst, ok := paramsMap["backup_first"].(bool); ok && backupFirst {
+		backupParams := map[string]interface{}{
+			"service": service,
+			"action":  "create",
+			"backup_name": "pre-reset-" + time.Now().Format("20060102-150405"),
+		}
+		backupResult, err := handleDbBackupCommand(client, filter, backupParams)
+		if err != nil {
+			return "Failed to create backup before reset: " + err.Error(), nil
+		}
+		results = append(results, "Backup created: "+backupResult.(string))
+	}
+
+	resetCommand := "migrate drop && migrate up"
+	if cmd, ok := paramsMap["reset_command"].(string); ok && cmd != "" {
+		resetCommand = cmd
+	}
+
+	args := []string{"exec", "-T", service}
+	args = append(args, strings.Split(resetCommand, " ")...)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	output, err := client.Execute(ctx, args)
+	if err != nil {
+		if composeErr, ok := err.(*compose.ComposeError); ok {
+			filtered := filter.FilterMigrationOutput(composeErr.Output + "\n" + composeErr.Message)
+			results = append(results, "Reset failed: "+filtered)
+			return strings.Join(results, "\n"), nil
+		}
+		results = append(results, "Reset failed: "+err.Error())
+		return strings.Join(results, "\n"), nil
+	}
+
+	filtered := filter.FilterMigrationOutput(output)
+	results = append(results, "Database reset completed: "+filtered)
+
+	if seedCommand, ok := paramsMap["seed_command"].(string); ok && seedCommand != "" {
+		seedArgs := []string{"exec", "-T", service}
+		seedArgs = append(seedArgs, strings.Split(seedCommand, " ")...)
+
+		seedOutput, err := client.Execute(ctx, seedArgs)
+		if err != nil {
+			results = append(results, "Seeding failed: "+err.Error())
+		} else {
+			seedFiltered := filter.Filter(seedOutput)
+			results = append(results, "Database seeded: "+seedFiltered)
+		}
+	}
+
+	return strings.Join(results, "\n"), nil
+}
+
+func handleDbBackupCommand(client *compose.Client, filter *filter.OutputFilter, params interface{}) (interface{}, error) {
+	paramsMap, ok := params.(map[string]interface{})
+	if !ok {
+		return "Invalid parameters", nil
+	}
+
+	service, ok := paramsMap["service"].(string)
+	if !ok || service == "" {
+		return "Service name is required", nil
+	}
+
+	action, ok := paramsMap["action"].(string)
+	if !ok || action == "" {
+		return "Action is required (create, restore, list)", nil
+	}
+
+	var command string
+	var args []string
+
+	switch action {
+	case "create":
+		backupName := "backup-" + time.Now().Format("20060102-150405")
+		if name, ok := paramsMap["backup_name"].(string); ok && name != "" {
+			backupName = name
+		}
+
+		command = "pg_dump -U $POSTGRES_USER $POSTGRES_DB > /backups/" + backupName + ".sql"
+		if cmd, ok := paramsMap["backup_command"].(string); ok && cmd != "" {
+			command = strings.Replace(cmd, "{backup_name}", backupName, -1)
+		}
+
+		args = []string{"exec", "-T", service, "sh", "-c", command}
+
+	case "restore":
+		backupName, ok := paramsMap["backup_name"].(string)
+		if !ok || backupName == "" {
+			return "Backup name is required for restore action", nil
+		}
+
+		command = "psql -U $POSTGRES_USER -d $POSTGRES_DB < /backups/" + backupName + ".sql"
+		if cmd, ok := paramsMap["restore_command"].(string); ok && cmd != "" {
+			command = strings.Replace(cmd, "{backup_name}", backupName, -1)
+		}
+
+		args = []string{"exec", "-T", service, "sh", "-c", command}
+
+	case "list":
+		command = "ls -la /backups/"
+		if cmd, ok := paramsMap["list_command"].(string); ok && cmd != "" {
+			command = cmd
+		}
+
+		args = []string{"exec", "-T", service, "sh", "-c", command}
+
+	default:
+		return "Invalid action. Use 'create', 'restore', or 'list'", nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
+	output, err := client.Execute(ctx, args)
+	if err != nil {
+		if composeErr, ok := err.(*compose.ComposeError); ok {
+			filtered := filter.Filter(composeErr.Output + "\n" + composeErr.Message)
+			return "Backup operation failed: " + filtered, nil
+		}
+		return "Backup operation failed: " + err.Error(), nil
+	}
+
+	filtered := filter.Filter(output)
+	return action + " completed successfully: " + filtered, nil
 }
