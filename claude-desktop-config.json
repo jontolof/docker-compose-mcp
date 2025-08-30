@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "docker-compose-mcp": {
+      "command": "/Users/jontolof/Development/SCM/docker-compose-mcp/docker-compose-mcp",
+      "args": ["stdio"],
+      "env": {
+        "MCP_LOG_LEVEL": "info"
+      }
+    }
+  }
+}
