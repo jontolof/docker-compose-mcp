@@ -15,6 +15,7 @@ import (
 	"github.com/jontolof/docker-compose-mcp/internal/session"
 	"github.com/jontolof/docker-compose-mcp/internal/shutdown"
 	"github.com/jontolof/docker-compose-mcp/internal/tools"
+	"github.com/jontolof/docker-compose-mcp/internal/workspace"
 )
 
 func main() {
@@ -63,6 +64,11 @@ func main() {
 	outputFilter := filter.NewOutputFilter()
 	sessionManager := session.NewManager()
 	optimizationTool := tools.NewOptimizationTool(composeClient)
+	
+	// Initialize workspace manager
+	workspaceManager := workspace.NewManager(cfg.WorkDir)
+	workspaceTool := tools.NewWorkspaceTool(workspaceManager)
+	projectDiscoveryTool := tools.NewProjectDiscoveryTool(workspaceManager)
 
 	// Register cleanup handlers
 	shutdownMgr.RegisterSessionCleanup(sessionManager)
@@ -385,6 +391,32 @@ func main() {
 		},
 		Handler: func(params interface{}) (interface{}, error) {
 			return optimizationTool.Execute(context.Background(), params)
+		},
+	})
+
+	// Register workspace management tools
+	server.RegisterTool(mcp.Tool{
+		Name:        "workspace_manage",
+		Description: workspaceTool.GetDescription(),
+		InputSchema: mcp.Schema{
+			Type:       "object",
+			Properties: convertSchemaProperties(workspaceTool.GetSchema()["properties"].(map[string]interface{})),
+			Required:   []string{"action"},
+		},
+		Handler: func(params interface{}) (interface{}, error) {
+			return workspaceTool.Execute(context.Background(), params)
+		},
+	})
+
+	server.RegisterTool(mcp.Tool{
+		Name:        "project_discover",
+		Description: projectDiscoveryTool.GetDescription(),
+		InputSchema: mcp.Schema{
+			Type:       "object",
+			Properties: convertSchemaProperties(projectDiscoveryTool.GetSchema()["properties"].(map[string]interface{})),
+		},
+		Handler: func(params interface{}) (interface{}, error) {
+			return projectDiscoveryTool.Execute(context.Background(), params)
 		},
 	})
 
