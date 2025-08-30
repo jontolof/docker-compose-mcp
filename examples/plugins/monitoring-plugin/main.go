@@ -457,7 +457,7 @@ func (mp *MonitoringPlugin) collectMetrics() {
 	defer mp.mu.Unlock()
 
 	// Simulate metric collection (in real implementation, would query Docker)
-	for serviceName, metrics := range mp.metrics {
+	for _, metrics := range mp.metrics {
 		// Simulate metrics updates
 		metrics.CPU = 25.0 + (float64(time.Now().Unix()%10) * 5.0)
 		metrics.Memory = 512 + (time.Now().Unix()%500)*1024*1024

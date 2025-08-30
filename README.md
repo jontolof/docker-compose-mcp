@@ -1,6 +1,26 @@
 # docker-compose-mcp
 
-An intelligent Model Context Protocol (MCP) server for Docker Compose that reduces output verbosity by 90%+ while maintaining complete operational visibility. Never flood your AI assistant's context with Docker noise again.
+An intelligent Model Context Protocol (MCP) server for **Claude Desktop** that reduces Docker Compose output verbosity by 90%+ while maintaining complete operational visibility. Never flood your AI assistant's context with Docker noise again.
+
+## ⚠️ Important: Claude Desktop Only
+
+**This MCP server is designed exclusively for Claude Desktop** (the standalone desktop application).
+
+### Not for Claude Code
+If you're using **Claude Code** (claude.ai/code), you do NOT need this tool:
+- Claude Code has **built-in Docker support** via its Bash tool
+- Claude Code already provides **efficient terminal output management**
+- Installing this MCP server with Claude Code would be redundant
+
+### Who Should Use This
+✅ **Use this if you have:**
+- Claude Desktop application installed
+- Need to run Docker Compose commands through Claude
+- Want intelligent output filtering for Docker operations
+
+❌ **Don't use this if you have:**
+- Claude Code (claude.ai/code) - use the built-in Bash tool instead
+- Direct terminal access in your AI assistant
 
 ## 🎯 The Problem
 
@@ -40,7 +60,7 @@ Docker Compose commands generate massive amounts of output - layer IDs, download
 ### Prerequisites
 - Docker and Docker Compose installed
 - Go 1.24.0+ (for building from source)
-- Claude Desktop or any MCP-compatible client
+- **Claude Desktop** application (not Claude Code)
 
 ### Quick Install
 
@@ -77,7 +97,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 
 ## 🎮 Usage
 
-Once configured, Claude can use Docker Compose commands naturally:
+Once configured in Claude Desktop, you can use Docker Compose commands naturally:
 
 ```
 You: "Build and run the tests for my application"

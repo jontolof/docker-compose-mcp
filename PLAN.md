@@ -1,8 +1,14 @@
 # Docker Compose MCP Server - Implementation Plan
 
+## ⚠️ Platform Compatibility Notice
+
+**This MCP server is designed for Claude Desktop ONLY**, not Claude Code.
+- **Claude Desktop**: Requires this MCP server for Docker Compose operations
+- **Claude Code**: Already has built-in Docker support via Bash tool - this server is NOT needed
+
 ## Executive Summary
 
-Building an MCP server that wraps Docker Compose operations with intelligent output filtering, reducing context usage by 90%+ while maintaining complete operational visibility. Inspired by xcode-build-mcp's approach to managing complex build tools.
+Building an MCP server for **Claude Desktop** that wraps Docker Compose operations with intelligent output filtering, reducing context usage by 90%+ while maintaining complete operational visibility. Inspired by xcode-build-mcp's approach to managing complex build tools.
 
 **Current Status**: ✅ **Phase 5 Complete** - Advanced optimization features implemented with smart caching, parallel execution, and comprehensive metrics tracking. Tool scope (14 tools) is reasonable compared to XcodeBuildMCP (~21 tools). Ready for production polish.
 

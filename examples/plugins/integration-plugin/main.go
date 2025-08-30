@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/jontolof/docker-compose-mcp/internal/mcp"
@@ -277,9 +275,9 @@ func (ip *IntegrationPlugin) sendWebhook(params interface{}) (interface{}, error
 		return nil, fmt.Errorf("payload is required")
 	}
 
-	headers, _ := paramsMap["headers"].(map[string]interface{})
+	_ = paramsMap["headers"]
 
-	webhookPayload := WebhookPayload{
+	_ = WebhookPayload{
 		Event:     "docker-compose-event",
 		Source:    "docker-compose-mcp",
 		Timestamp: time.Now(),

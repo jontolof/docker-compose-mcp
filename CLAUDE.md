@@ -1,6 +1,17 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when developing and maintaining this repository.
+
+## ⚠️ IMPORTANT: This Project is for Claude Desktop, NOT Claude Code
+
+**This MCP server is designed exclusively for Claude Desktop** (the standalone desktop application). It is **NOT compatible with Claude Code** (claude.ai/code).
+
+### Why this distinction matters:
+- **Claude Desktop** requires external tools via MCP protocol for Docker operations
+- **Claude Code** already has built-in terminal and Docker support, making this tool redundant
+- **MCP Protocol** is only supported by Claude Desktop, not Claude Code
+
+If you're using Claude Code, you already have direct Docker Compose access via the built-in Bash tool - you don't need this MCP server.
 
 ## IMPORTANT: Communication Guidelines
 
@@ -17,9 +28,11 @@ This is a professional open-source project. All code and documentation should be
 
 ## Project Overview
 
-A Model Context Protocol (MCP) server for Docker Compose operations that filters verbose Docker output to essential information only, preventing AI assistant context flooding.
+A Model Context Protocol (MCP) server for **Claude Desktop** that enables Docker Compose operations with intelligent output filtering. This server bridges the gap between Claude Desktop (which lacks built-in terminal access) and Docker Compose commands.
 
-**Core Mission**: Reduce Docker Compose command output by 90%+ while maintaining complete operational capability.
+**Core Mission**: Enable Docker Compose operations in Claude Desktop while reducing output by 90%+ to prevent context flooding.
+
+**Target Platform**: Claude Desktop only (not for Claude Code, which has built-in Docker support)
 
 ## Quick Start
 
